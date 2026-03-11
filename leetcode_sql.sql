@@ -91,5 +91,66 @@ ORDER BY percentage DESC, contest_id
 
 -- ==============================================================
 
+-- LeetCode 1211 - Queries Quality and Percentage
+-- Pattern: GROUP BY + AVG + CASE WHEN
+-- Idea: Group by query_name, calculate quality as average of rating / position, and calculate poor query percentage as average of rows with rating < 3 multiplied by 100
+-- My Solution
+SELECT 
+    query_name,
+    ROUND(AVG(rating / position), 2) AS quality,
+    ROUND(AVG(CASE WHEN rating < 3 THEN 1 ELSE 0 END) * 100, 2) AS poor_query_percentage
+FROM Queries
+GROUP BY query_name
+-- ==============================================================
+-- LeetCode 1193 - Monthly Transactions I
+-- Pattern: GROUP BY + Conditional Aggregation + Date Formatting
+-- Idea: Group by month and country, count all transactions and sum all amounts, 
+-- then use CASE WHEN to count only approved transactions and sum only approved amounts
+-- My Solution
+SELECT
+    TO_CHAR(trans_date, 'YYYY-MM') AS month,
+    country,
+    COUNT(id) AS trans_count,
+    SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+    SUM(amount) AS trans_total_amount,
+    SUM(CASE WHEN state = 'approved' THEN amount ELSE 0 END) AS approved_total_amount
+FROM Transactions
+GROUP BY TO_CHAR(trans_date, 'YYYY-MM'), country
 
+-- ===============================================================
+-- LeetCode 1174 - Immediate Food Delivery II
+-- Pattern: Window Function + Filtering + AVG + CASE WHEN
+-- Idea: Find each customer's first order using MIN() OVER(PARTITION BY customer_id), 
+-- keep only first orders, then calculate the percentage of immediate deliveries
+-- My Solution
+SELECT
+    ROUND(AVG(CASE WHEN t.status = 'immediate' THEN 1 ELSE 0 END) * 100, 2) AS immediate_percentage
+FROM (
+    SELECT
+        delivery_id,
+        customer_id,
+        order_date,
+        customer_pref_delivery_date,
+        MIN(order_date) OVER(PARTITION BY customer_id) AS firs_del,
+        CASE
+            WHEN order_date = customer_pref_delivery_date THEN 'immediate'
+            ELSE 'scheduled'
+        END AS status
+    FROM Delivery
+) t
+WHERE order_date = firs_del
+
+-- ===============================================================
+-- LeetCode 1141 - User Activity for the Past 30 Days I
+-- Pattern: Aggregation + Date filtering
+-- Idea: Filter the last 30 days ending 2019-07-27 (inclusive), then group by activity_date and count distinct users to get daily active users.
+-- My Solution
+SELECT 
+    activity_date AS day,
+    COUNT(DISTINCT user_id) AS active_users
+FROM Activity
+WHERE activity_date BETWEEN DATE '2019-07-27' - INTERVAL '29 days' AND DATE '2019-07-27'
+GROUP BY activity_date
+
+-- ==================================================================
 
