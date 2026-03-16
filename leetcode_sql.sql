@@ -154,3 +154,156 @@ GROUP BY activity_date
 
 -- ==================================================================
 
+-- LeetCode 1070 - Product Sales Analysis III
+-- Pattern: CTE + Window Function (DENSE_RANK)
+-- Idea: Rank sales years for each product and return all rows where the year is the earliest (rank = 1).
+-- My Solution
+
+WITH cte AS (
+    SELECT
+        product_id,
+        year AS first_year,
+        DENSE_RANK() OVER(PARTITION BY product_id ORDER BY year) AS first_app,
+        quantity,
+        price
+    FROM Sales
+)
+SELECT
+    product_id,
+    first_year,
+    quantity,
+    price
+FROM cte
+WHERE first_app = 1;
+
+-- Best Solution
+-- Changes:
+-- 1. Used MIN(year) + JOIN which is simpler and commonly used for this pattern.
+-- 2. Avoids window function when only the first year per product is required.
+
+SELECT
+    s.product_id,
+    s.year AS first_year,
+    s.quantity,
+    s.price
+FROM Sales s
+JOIN (
+    SELECT
+        product_id,
+        MIN(year) AS first_year
+    FROM Sales
+    GROUP BY product_id
+) first_sales
+    ON s.product_id = first_sales.product_id
+   AND s.year = first_sales.first_year;
+
+-- ================================================================
+
+-- LeetCode 1731 - The Number of Employees Which Report to Each Employee
+-- Pattern: Self Join + GROUP BY + Aggregation
+-- Idea: Join each manager with their direct reports, then count reports and calculate the rounded average age of those reports.
+-- My Solution
+
+SELECT
+    e1.employee_id,
+    e1.name,
+    COUNT(*) AS reports_count,
+    ROUND(AVG(e2.age), 0) AS average_age
+FROM Employees e1
+JOIN Employees e2
+    ON e1.employee_id = e2.reports_to
+GROUP BY
+    e1.employee_id,
+    e1.name
+ORDER BY e1.employee_id;
+
+-- ================================================================
+
+-- LeetCode 180 - Consecutive Numbers
+-- Pattern: Window Function (LEAD) / Consecutive Rows
+-- Idea: Use LEAD() to compare the current number with the next two rows. 
+-- If all three values are equal, the number appears at least three times consecutively.
+
+-- My Solution
+SELECT DISTINCT
+    t.num AS ConsecutiveNums
+FROM (
+    SELECT 
+        *,
+        LEAD(num,1) OVER (ORDER BY id) AS next1,
+        LEAD(num,2) OVER (ORDER BY id) AS next2
+    FROM Logs
+) t
+WHERE num = next1 
+  AND num = next2;
+
+-- =========================================================
+
+-- LeetCode 1204 - Last Person to Fit in the Bus
+-- Pattern: Window Function (Running Total / Cumulative Sum)
+-- Idea: Compute cumulative weight in boarding order using SUM() OVER (ORDER BY turn). 
+-- Keep rows where total weight ≤ 1000 and return the last person in the queue.
+
+-- My Solution
+SELECT 
+    t.person_name
+FROM (
+    SELECT 
+        person_name,
+        turn,
+        SUM(weight) OVER (ORDER BY turn) AS tot_sum
+    FROM Queue
+) t
+WHERE tot_sum <= 1000
+ORDER BY turn DESC
+LIMIT 1;
+
+-- =========================================================
+
+-- LeetCode 626 - Exchange Seats
+-- Pattern: CASE WHEN + Odd/Even Row Transformation
+-- Idea: Swap seat ids by checking parity. Odd ids move to id+1, even ids move to id-1. 
+-- If the last id is odd (no pair), keep it unchanged.
+
+-- My Solution
+SELECT 
+    CASE
+        WHEN id % 2 = 1 AND (SELECT MAX(id) FROM Seat) = id THEN id
+        WHEN id % 2 = 1 THEN id + 1
+        ELSE id - 1
+    END AS id,
+    student
+FROM Seat
+ORDER BY id;
+
+-- =========================================================
+
+-- LeetCode 1341 - Movie Rating
+-- Pattern: Aggregation + ORDER BY + UNION ALL
+-- Idea: First, count how many ratings each user gave and pick the top one by count and lexicographical order. 
+-- Then, compute the highest average movie rating in February 2020 and pick the lexicographically smaller title in case of a tie.
+
+-- My Solution
+(SELECT 
+    u.name AS results  
+FROM Users u
+JOIN MovieRating mr 
+    ON u.user_id = mr.user_id
+GROUP BY u.name
+ORDER BY COUNT(*) DESC, u.name
+LIMIT 1)
+
+UNION ALL
+
+(SELECT 
+    m.title AS results
+FROM Movies m
+JOIN MovieRating mr 
+    ON m.movie_id = mr.movie_id
+WHERE mr.created_at >= '2020-02-01'
+  AND mr.created_at < '2020-03-01'
+GROUP BY m.movie_id, m.title
+ORDER BY AVG(mr.rating) DESC, m.title
+LIMIT 1);
+
+-- =========================================================
