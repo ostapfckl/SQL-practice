@@ -307,3 +307,74 @@ ORDER BY AVG(mr.rating) DESC, m.title
 LIMIT 1);
 
 -- =========================================================
+
+-- LeetCode 602 - Friend Requests II: Who Has the Most Friends
+-- Pattern: UNION ALL + GROUP BY
+-- Idea: Combine requester_id and accepter_id into one list of people, count how many times each person appears, then return the one with the highest count.
+-- My Solution
+
+WITH cte AS (
+    SELECT requester_id AS id
+    FROM RequestAccepted
+
+    UNION ALL
+
+    SELECT accepter_id AS id
+    FROM RequestAccepted
+)
+SELECT
+    id,
+    COUNT(*) AS num
+FROM cte
+GROUP BY id
+ORDER BY num DESC
+LIMIT 1;
+
+-- =========================================================
+
+-- LeetCode 585 - Investments in 2016
+-- Pattern: GROUP BY + Subquery Filtering
+-- Idea: Keep records where tiv_2015 appears more than once, and where the (lat, lon) location pair is unique. Then sum tiv_2016 and round to 2 decimals.
+-- My Solution
+
+SELECT
+    ROUND(SUM(tiv_2016)::numeric, 2) AS tiv_2016
+FROM Insurance
+WHERE tiv_2015 IN (
+    SELECT tiv_2015
+    FROM Insurance
+    GROUP BY tiv_2015
+    HAVING COUNT(*) > 1
+)
+AND (lat, lon) IN (
+    SELECT lat, lon
+    FROM Insurance
+    GROUP BY lat, lon
+    HAVING COUNT(*) = 1
+);
+
+-- =========================================================
+-- LeetCode 185 - Department Top Three Salaries
+-- Pattern: JOIN + Window Function (DENSE_RANK)
+-- Idea: Join employees with departments, rank unique salaries within each department in descending order, then keep employees whose salary rank is within the top 3.
+-- My Solution
+
+WITH cte AS (
+    SELECT
+        d.name AS Department,
+        e.name AS Employee,
+        e.salary AS Salary,
+        DENSE_RANK() OVER (
+            PARTITION BY d.id
+            ORDER BY e.salary DESC
+        ) AS dr
+    FROM Department d
+    JOIN Employee e
+        ON e.departmentId = d.id
+)
+SELECT
+    Department,
+    Employee,
+    Salary
+FROM cte
+WHERE dr <= 3;
